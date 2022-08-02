@@ -1,3 +1,12 @@
+# Space Cubics fork of micro-ROS module for Zephyr
+This is a fork of https://github.com/micro-ROS/micro_ros_zephyr_module
+
+The purpose of this fork is to fix up build errors when building micro-ROS Humble for a board that requires
+Zephyr 3.1's minimal POSIX implementation.
+
+The original README contents follow below:
+*****
+
 ![banner](.images/banner-dark-theme.png#gh-dark-mode-only)
 ![banner](.images/banner-light-theme.png#gh-light-mode-only)
 
