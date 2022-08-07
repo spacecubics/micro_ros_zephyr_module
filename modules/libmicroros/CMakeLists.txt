@@ -76,6 +76,7 @@ endforeach()
 
 # micro-ROS transport library
 
+zephyr_library_named(microros_transports)
 if(CONFIG_MICROROS_TRANSPORT_SERIAL)
     set(MICROROS_TRANSPORT_DIR ${MICROROS_DIR}/microros_transports/serial)
 elseif(CONFIG_MICROROS_TRANSPORT_SERIAL_USB)
@@ -83,11 +84,11 @@ elseif(CONFIG_MICROROS_TRANSPORT_SERIAL_USB)
 elseif(CONFIG_MICROROS_TRANSPORT_UDP)
     set(MICROROS_TRANSPORT_DIR ${MICROROS_DIR}/microros_transports/udp)
     add_dependencies(microros_transports posix_subsys)
+    target_include_directories(microros_transports PRIVATE ${ZEPHYR_BASE}/include/zephyr/posix)
 else()
     message(FATAL_ERROR Please set a micro-ROS transport)
 endif()
 
-zephyr_library_named(microros_transports)
 zephyr_include_directories(${MICROROS_DIR}/include)
 zephyr_include_directories(${MICROROS_TRANSPORT_DIR})
 
