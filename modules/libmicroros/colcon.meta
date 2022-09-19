@@ -44,6 +44,11 @@
                 "-DTRACETOOLS_DISABLED=ON",
                 "-DTRACETOOLS_STATUS_CHECKING_TOOL=OFF"
             ]
+        },
+        "microcdr": {
+            "cmake-args": [
+                "-DUCDR_PIC=OFF"
+            ]
         }
     }
 }
