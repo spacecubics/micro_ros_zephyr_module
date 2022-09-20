@@ -33,7 +33,6 @@ typedef struct {
 } zephyr_transport_params_t;
 
 #define MICRO_ROS_FRAMING_REQUIRED false
-static zephyr_transport_params_t default_params = {.ip = CONFIG_MICROROS_AGENT_IP, .port = CONFIG_MICROROS_AGENT_PORT};
 
 bool zephyr_transport_open(struct uxrCustomTransport * transport);
 bool zephyr_transport_close(struct uxrCustomTransport * transport);
