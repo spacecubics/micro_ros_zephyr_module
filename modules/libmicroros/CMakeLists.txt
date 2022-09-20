@@ -33,12 +33,14 @@ set(external_project_cxxflags
 include(ExternalProject)
 
 externalproject_add(libmicroros_project
-    PREFIX     ${CMAKE_BINARY_DIR}/libmicroros-prefix
+    PREFIX     ${CMAKE_BINARY_DIR}/libmicroros
     SOURCE_DIR ${MICROROS_DIR}
-    BINARY_DIR ${MICROROS_DIR}
+    TMP_DIR    ${CMAKE_BINARY_DIR}/libmicroros/tmp
+    STAMP_DIR  ${CMAKE_BINARY_DIR}/libmicroros/stamp
+    BINARY_DIR ${CMAKE_BINARY_DIR}/libmicroros/build
     CONFIGURE_COMMAND ""
     BUILD_COMMAND
-        ${submake} -f libmicroros.mk
+        ${submake} -C ${MICROROS_DIR} -f libmicroros.mk
             X_CFLAGS=${external_project_cflags}
             X_CXXFLAGS=${external_project_cxxflags}
             X_CC=${CMAKE_C_COMPILER}
@@ -48,16 +50,19 @@ externalproject_add(libmicroros_project
             COMPONENT_PATH=${MICROROS_DIR}
             ZEPHYR_BASE=${ZEPHYR_BASE}
             PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}
+            WORK_DIR=${CMAKE_BINARY_DIR}/libmicroros
     INSTALL_COMMAND ""
-    BUILD_BYPRODUCTS ${MICROROS_DIR}/libmicroros.a
+    BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/libmicroros/libmicroros.a
+    DEPENDS zephyr_interface
     )
 
-zephyr_library_import(libmicroros ${MICROROS_DIR}/libmicroros.a)
+zephyr_library_import(libmicroros ${CMAKE_BINARY_DIR}/libmicroros/libmicroros.a)
+
 
 zephyr_interface_library_named(microros)
 add_dependencies(microros libmicroros)
 add_dependencies(microros libmicroros_project)
-target_include_directories(microros INTERFACE ${MICROROS_DIR}/include)
+target_include_directories(microros INTERFACE ${CMAKE_BINARY_DIR}/libmicroros/install/include)
 
 execute_process(
     COMMAND
@@ -71,7 +76,7 @@ execute_process(
     )
 
 foreach(pkg ${INCLUDE_ROS2_PACKAGES})
-    target_include_directories(microros INTERFACE ${MICROROS_DIR}/include/${pkg})
+    target_include_directories(microros INTERFACE ${CMAKE_BINARY_DIR}/libmicroros/install/include/${pkg})
 endforeach()
 
 # micro-ROS transport library
@@ -91,7 +96,7 @@ else()
     message(FATAL_ERROR Please set a micro-ROS transport)
 endif()
 
-zephyr_include_directories(${MICROROS_DIR}/include)
+zephyr_include_directories(${CMAKE_BINARY_DIR}/libmicroros/install/include)
 zephyr_include_directories(${MICROROS_TRANSPORT_DIR})
 
 zephyr_library_sources(
@@ -101,13 +106,5 @@ zephyr_library_sources(
 add_dependencies(microros microros_transports)
 add_dependencies(microros_transports libmicroros_project)
 add_dependencies(microros_transports libmicroros)
-
-# Cleaning
-
-set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
-    ${MICROROS_DIR}/include
-    ${MICROROS_DIR}/configured_colcon.meta
-    ${MICROROS_DIR}/zephyr_toolchain.cmake
-    )
 
 endif()

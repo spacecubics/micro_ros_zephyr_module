@@ -1,4 +1,9 @@
-UROS_DIR = $(COMPONENT_PATH)/micro_ros_src
+WORK_DIR ?= .
+BUILD_DIR = $(WORK_DIR)/build
+LOG_DIR = $(WORK_DIR)/log
+INSTALL_DIR = $(WORK_DIR)/install
+DEV_INSTALL_DIR = $(WORK_DIR)/dev_install
+
 DEBUG ?= 0
 
 ifeq ($(DEBUG), 1)
@@ -13,12 +18,9 @@ CXXFLAGS_INTERNAL := $(X_CXXFLAGS)
 CFLAGS_INTERNAL := -c -I$(PROJECT_BINARY_DIR)/include/generated $(CFLAGS_INTERNAL)
 CXXFLAGS_INTERNAL := -c -I$(PROJECT_BINARY_DIR)/include/generated $(CXXFLAGS_INTERNAL)
 
-all: $(COMPONENT_PATH)/libmicroros.a
+all: $(WORK_DIR)/libmicroros.a
 
 clean:
-	rm -rf $(COMPONENT_PATH)/libmicroros.a; \
-	rm -rf $(COMPONENT_PATH)/include; \
-	rm -rf $(COMPONENT_PATH)/zephyr_toolchain.cmake; \
 	rm -rf $(COMPONENT_PATH)/micro_ros_dev; \
 	rm -rf $(COMPONENT_PATH)/micro_ros_src;
 
@@ -30,7 +32,8 @@ get_package_names: $(COMPONENT_PATH)/micro_ros_src/src
 
 configure_colcon_meta: $(COMPONENT_PATH)/colcon.meta $(COMPONENT_PATH)/micro_ros_src/src
 	. $(COMPONENT_PATH)/utils.sh; \
-	cp $(COMPONENT_PATH)/colcon.meta $(COMPONENT_PATH)/configured_colcon.meta; \
+	META_FILE=$(BUILD_DIR)/configured_colcon.meta; \
+	cp $(COMPONENT_PATH)/colcon.meta "$$META_FILE"; \
 	ZEPHYR_CONF_FILE=$(ZEPHYR_CONF_FILE); \
 	update_meta_from_zephyr_config "CONFIG_MICROROS_NODES" "rmw_microxrcedds" "RMW_UXRCE_MAX_NODES"; \
 	update_meta_from_zephyr_config "CONFIG_MICROROS_PUBLISHERS" "rmw_microxrcedds" "RMW_UXRCE_MAX_PUBLISHERS"; \
@@ -49,14 +52,14 @@ configure_colcon_meta: $(COMPONENT_PATH)/colcon.meta $(COMPONENT_PATH)/micro_ros
 
 
 configure_toolchain: $(COMPONENT_PATH)/zephyr_toolchain.cmake.in
-	rm -f $(COMPONENT_PATH)/zephyr_toolchain.cmake; \
+	rm -f $(BUILD_DIR)/zephyr_toolchain.cmake; \
 	cat $(COMPONENT_PATH)/zephyr_toolchain.cmake.in | \
 		sed "s/@CMAKE_C_COMPILER@/$(subst /,\/,$(X_CC))/g" | \
 		sed "s/@CMAKE_CXX_COMPILER@/$(subst /,\/,$(X_CXX))/g" | \
 		sed "s/@CMAKE_SYSROOT@/$(subst /,\/,$(COMPONENT_PATH))/g" | \
 		sed "s/@CFLAGS@/$(subst /,\/,$(CFLAGS_INTERNAL))/g" | \
 		sed "s/@CXXFLAGS@/$(subst /,\/,$(CXXFLAGS_INTERNAL))/g" \
-		> $(COMPONENT_PATH)/zephyr_toolchain.cmake
+		> $(BUILD_DIR)/zephyr_toolchain.cmake
 
 $(COMPONENT_PATH)/micro_ros_dev/install:
 	rm -rf micro_ros_dev; \
@@ -99,13 +102,17 @@ $(COMPONENT_PATH)/micro_ros_src/src:
 	touch src/rcl/rcl_yaml_param_parser/COLCON_IGNORE; \
     touch src/rcl_logging/rcl_logging_spdlog/COLCON_IGNORE;
 
-$(COMPONENT_PATH)/micro_ros_src/install: configure_colcon_meta configure_toolchain $(COMPONENT_PATH)/micro_ros_dev/install $(COMPONENT_PATH)/micro_ros_src/src
-	cd $(UROS_DIR); \
+$(INSTALL_DIR): configure_colcon_meta configure_toolchain $(COMPONENT_PATH)/micro_ros_dev/install $(COMPONENT_PATH)/micro_ros_src/src
+	cd $(COMPONENT_PATH)/micro_ros_src; \
 	. ../micro_ros_dev/install/local_setup.sh; \
-	colcon build \
+	colcon \
+		--log-base=$(LOG_DIR) \
+		build \
+		--build-base=$(BUILD_DIR) \
+		--install-base=$(INSTALL_DIR) \
 		--merge-install \
 		--packages-ignore-regex=.*_cpp \
-		--metas $(COMPONENT_PATH)/configured_colcon.meta \
+		--metas $(BUILD_DIR)/configured_colcon.meta \
 		--cmake-args \
 		"--no-warn-unused-cli" \
 		-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=OFF \
@@ -113,12 +120,12 @@ $(COMPONENT_PATH)/micro_ros_src/install: configure_colcon_meta configure_toolcha
 		-DBUILD_SHARED_LIBS=OFF \
 		-DBUILD_TESTING=OFF \
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DCMAKE_TOOLCHAIN_FILE=$(COMPONENT_PATH)/zephyr_toolchain.cmake \
+		-DCMAKE_TOOLCHAIN_FILE=$(BUILD_DIR)/zephyr_toolchain.cmake \
 		-DCMAKE_VERBOSE_MAKEFILE=OFF; \
 
-$(COMPONENT_PATH)/libmicroros.a: $(COMPONENT_PATH)/micro_ros_src/install
-	mkdir -p $(UROS_DIR)/libmicroros; cd $(UROS_DIR)/libmicroros; \
-	for file in $$(find $(UROS_DIR)/install/lib/ -name '*.a'); do \
+$(WORK_DIR)/libmicroros.a: $(INSTALL_DIR)
+	mkdir -p $(BUILD_DIR)/libmicroros; cd $(BUILD_DIR)/libmicroros; \
+	for file in $$(find $(INSTALL_DIR)/lib/ -name '*.a'); do \
 		folder=$$(echo $$file | sed -E "s/(.+)\/(.+).a/\2/"); \
 		mkdir -p $$folder; cd $$folder; $(X_AR) x $$file; \
 		for f in *; do \
@@ -126,6 +133,5 @@ $(COMPONENT_PATH)/libmicroros.a: $(COMPONENT_PATH)/micro_ros_src/install
 		done; \
 		cd ..; rm -rf $$folder; \
 	done ; \
-	$(X_AR) rc libmicroros.a *.obj; cp libmicroros.a $(COMPONENT_PATH); ${X_RANLIB} $(COMPONENT_PATH)/libmicroros.a; \
-	cd ..; rm -rf libmicroros; \
-	cp -R $(UROS_DIR)/install/include $(COMPONENT_PATH)/include;
+	$(X_AR) rc libmicroros.a *.o*; cp libmicroros.a $(WORK_DIR); ${X_RANLIB} $(WORK_DIR)/libmicroros.a; \
+	cd ..; rm -rf libmicroros;
