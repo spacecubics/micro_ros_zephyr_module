@@ -1,6 +1,6 @@
 #include <uxr/client/transport.h>
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 
 #include <unistd.h>
 #include <stdio.h>
